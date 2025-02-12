@@ -1,0 +1,9 @@
+storage:
+  db_path: "./cdoc/db"
+  doc_path: "./cdoc/docs"
+
+redis:
+  enabled: false
+  host: "127.0.0.1"
+  port: 6379
+  db: 0

@@ -1,0 +1,9 @@
+redis
+pyyaml
+flask
+gunicorn
+sqlalchemy
+requests
+beautifulsoup4
+html2text
+python-magic

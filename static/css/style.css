@@ -1,0 +1,17 @@
+.container {
+    max-width: 1200px;
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
+
+.search-highlight {
+    background-color: #fff3cd;
+    padding: 2px;
+    border-radius: 2px;
+}
+
+.pagination {
+    margin-top: 20px;
+}
