@@ -6,6 +6,7 @@ import redis
 from datetime import datetime
 from urllib.parse import urlparse
 import uuid
+import mimetypes
 
 class DocumentStorage:
     def __init__(self, config_path='config.yaml'):
@@ -101,32 +102,31 @@ class DocumentStorage:
         ''', (category_id, url))
         self.conn.commit()
 
-    def add_document(self, url, title, markdown, category_id=None):
-        """
-        Add a new document to storage
-        
-        Args:
-            url (str): URL of the document
-            title (str): Title of the document
-            markdown (str): Markdown content
-            category_id (int, optional): Category ID to assign to the document
-        """
+    def add_document(self, url, title, raw_content, markdown, category_id=None):
+        """Add a new document to storage"""
         try:
-            # Create paths for the document
+            # Get paths for the document
             paths = self._get_file_path(url, category_id)
-            os.makedirs(paths['markdown'], exist_ok=True)
+            
+            # Create directories
+            os.makedirs(os.path.dirname(paths['markdown']), exist_ok=True)
             
             # Save markdown content
-            markdown_path = os.path.join(paths['markdown'], 'content.md')
-            with open(markdown_path, 'w', encoding='utf-8') as f:
+            with open(paths['markdown'], 'w', encoding='utf-8') as f:
                 f.write(markdown)
+                
+            # Save raw content
+            raw_path = os.path.join(os.path.dirname(paths['markdown']), 'content.txt')
+            with open(raw_path, 'w', encoding='utf-8') as f:
+                f.write(raw_content)
             
             # Add to database
             cursor = self.conn.cursor()
             cursor.execute('''
-                INSERT INTO documents (url, title, markdown_path, category_id)
-                VALUES (?, ?, ?, ?)
-            ''', (url, title, markdown_path, category_id))
+                INSERT INTO documents 
+                (url, title, markdown_path, category_id, created_at) 
+                VALUES (?, ?, ?, ?, ?)
+            ''', (url, title, paths['markdown'], category_id, datetime.now().isoformat()))
             self.conn.commit()
             
             return True
@@ -140,7 +140,14 @@ class DocumentStorage:
         
         if category_id:
             cursor.execute('''
-                SELECT d.*, c.name as category_name 
+                SELECT 
+                    d.id,
+                    d.url,
+                    d.title,
+                    d.markdown_path,
+                    d.category_id,
+                    d.created_at,
+                    c.name as category_name
                 FROM documents d 
                 LEFT JOIN categories c ON d.category_id = c.id 
                 WHERE d.category_id = ?
@@ -148,7 +155,14 @@ class DocumentStorage:
             ''', (category_id,))
         else:
             cursor.execute('''
-                SELECT d.*, c.name as category_name 
+                SELECT 
+                    d.id,
+                    d.url,
+                    d.title,
+                    d.markdown_path,
+                    d.category_id,
+                    d.created_at,
+                    c.name as category_name
                 FROM documents d 
                 LEFT JOIN categories c ON d.category_id = c.id 
                 ORDER BY d.created_at DESC
@@ -197,6 +211,33 @@ class DocumentStorage:
             'category_name': row[6] if row[6] else None
         } for row in rows]
 
+    def delete_document(self, url):
+        """Delete a document from database and filesystem"""
+        try:
+            # Get document paths before deleting from database
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT markdown_path FROM documents WHERE url = ?', (url,))
+            row = cursor.fetchone()
+            
+            if not row:
+                return False
+                
+            doc_dir = os.path.dirname(os.path.dirname(row[0]))
+            
+            # Delete from database
+            cursor.execute('DELETE FROM documents WHERE url = ?', (url,))
+            self.conn.commit()
+            
+            # Delete document directory
+            if os.path.exists(doc_dir):
+                import shutil
+                shutil.rmtree(doc_dir)
+            
+            return True
+        except Exception as e:
+            print(f"Error deleting document: {e}")
+            return False
+
     def _get_file_path(self, url, category_id=None):
         """Generate storage path based on URL and category"""
         # Get base path from config
@@ -216,40 +257,54 @@ class DocumentStorage:
         domain = parsed.netloc
         
         # Generate a unique ID for this document
-        doc_id = str(uuid.uuid4())[:8]
+        doc_id = hashlib.md5(url.encode()).hexdigest()[:8]
         
         # Create paths
         doc_dir = os.path.join(base_path, category_name, domain, doc_id)
-        markdown_dir = os.path.join(doc_dir, 'markdown')
+        markdown_file = os.path.join(doc_dir, 'content.md')
         images_dir = os.path.join(doc_dir, 'images')
         
         return {
             'base': doc_dir,
-            'markdown': markdown_dir,
+            'markdown': markdown_file,
             'images': images_dir
         }
 
-    def save_image(self, doc_url, image_url, image_data):
-        """Save an image and return its relative path"""
-        paths = self._get_file_path(doc_url)
-        
-        # Create images directory if it doesn't exist
-        os.makedirs(paths['images'], exist_ok=True)
-        
-        # Generate a filename for the image
-        image_name = hashlib.md5(image_url.encode()).hexdigest()[:12]
-        # Keep the original extension if present
-        ext = os.path.splitext(image_url)[1].lower()
-        if not ext or ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
-            # Default to .jpg if no valid extension found
-            ext = '.jpg'
-        
-        image_filename = f"{image_name}{ext}"
-        image_path = os.path.join(paths['images'], image_filename)
-        
-        # Save the image
-        with open(image_path, 'wb') as f:
-            f.write(image_data)
-        
-        # Return the relative path from markdown directory to image
-        return os.path.join('..', 'images', image_filename)
+    def save_image(self, doc_url, image_url, image_data, category_id=None):
+        """Save an image and return its local path relative to the document"""
+        try:
+            # Get document paths with category
+            paths = self._get_file_path(doc_url, category_id)
+            image_path = paths['images']
+            
+            # Create images directory if it doesn't exist
+            os.makedirs(image_path, exist_ok=True)
+            
+            # Generate a filename for the image
+            image_name = hashlib.md5(image_url.encode()).hexdigest()[:12]
+            
+            # Try to get extension from URL first
+            ext = os.path.splitext(image_url)[1].lower()
+            if not ext or ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']:
+                # Try to guess from content type
+                content_type = mimetypes.guess_type(image_url)[0]
+                if content_type:
+                    ext = mimetypes.guess_extension(content_type)
+                
+                # Default to .jpg if no valid extension found
+                if not ext:
+                    ext = '.jpg'
+            
+            image_filename = f"{image_name}{ext}"
+            image_path = os.path.join(image_path, image_filename)
+            
+            # Save the image
+            with open(image_path, 'wb') as f:
+                f.write(image_data)
+            
+            # Return relative path from markdown directory to image
+            markdown_dir = os.path.dirname(paths['markdown'])
+            return os.path.relpath(image_path, markdown_dir)
+        except Exception as e:
+            print(f"Error saving image {image_url}: {e}")
+            return None

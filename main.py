@@ -1,11 +1,16 @@
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template
+import os
 from DocumentStorage import DocumentStorage
 from crawler import Crawler
-import os
 
 app = Flask(__name__)
 doc_storage = DocumentStorage()
 crawler = Crawler(doc_storage)
+
+# Add markdown filter to Jinja2
+#@app.template_filter('markdown')
+#def markdown_filter(text):
+#    return markdown.markdown(text, extensions=['extra', 'codehilite'])
 
 @app.route('/')
 def index():
@@ -78,6 +83,19 @@ def update_document_category(url):
         app.logger.error(f"Error updating document category: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+@app.route('/api/documents/<path:url>', methods=['DELETE'])
+def delete_document(url):
+    """Delete a document"""
+    try:
+        success = doc_storage.delete_document(url)
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'Document not found'}), 404
+    except Exception as e:
+        app.logger.error(f"Error deleting document: {e}")
+        return jsonify({"error": "Internal server error"}), 500
+
 @app.route('/crawl', methods=['POST'])
 def crawl():
     """Crawl a new URL"""
@@ -108,16 +126,27 @@ def crawl():
 def view_document(url):
     """View a document's markdown content"""
     try:
-        paths = doc_storage._get_file_path(url)
-        markdown_path = os.path.join(paths['markdown'], 'content.md')
+        # Get document from database
+        cursor = doc_storage.conn.cursor()
+        cursor.execute('SELECT markdown_path FROM documents WHERE url = ?', (url,))
+        row = cursor.fetchone()
         
+        if not row:
+            return "Document not found", 404
+            
+        markdown_path = row[0]
+        
+        # Read markdown content
         if os.path.exists(markdown_path):
-            return render_template('view.html', url=url)
+            with open(markdown_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            return render_template('markdown.html', content=content)
         else:
-            return 'Document not found', 404
+            return "Document not found", 404
+            
     except Exception as e:
         app.logger.error(f"Error viewing document: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        return "Error viewing document", 500
 
 @app.route('/content/<path:url>')
 def get_content(url):

@@ -192,21 +192,47 @@ function displayResults(documents) {
     
     documents.forEach(doc => {
         const row = document.createElement('tr');
+        const createdAt = new Date(doc.created_at).toLocaleDateString();
+        
         row.innerHTML = `
             <td>
                 <a href="${doc.url}" target="_blank" title="${doc.url}">${doc.title || 'Untitled'}</a>
             </td>
             <td>${doc.category_name || '-'}</td>
-            <td>${new Date(doc.created_at).toLocaleDateString()}</td>
+            <td>${createdAt}</td>
             <td>
                 <div class="btn-group">
                     <a href="/view/${encodeURIComponent(doc.url)}" target="_blank" class="btn btn-sm btn-primary">Markdown</a>
                     <a href="${doc.url}" target="_blank" class="btn btn-sm btn-outline-secondary">Original</a>
+                    <button onclick="deleteDocument('${doc.url}')" class="btn btn-sm btn-danger">Delete</button>
                 </div>
             </td>
         `;
         tbody.appendChild(row);
     });
+}
+
+async function deleteDocument(url) {
+    if (!confirm('Are you sure you want to delete this document?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/documents/${encodeURIComponent(url)}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            // Reload document list
+            loadDocuments();
+        } else {
+            const data = await response.json();
+            alert('Error deleting document: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error deleting document:', error);
+        alert('Error deleting document. Please try again.');
+    }
 }
 
 // Handle crawl button click

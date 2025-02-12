@@ -23,7 +23,7 @@ class Crawler:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
         
-    def _download_image(self, doc_url, url):
+    def _download_image(self, doc_url, url, category_id):
         """Download an image and save it locally"""
         try:
             # Handle relative URLs
@@ -38,12 +38,12 @@ class Crawler:
             response.raise_for_status()
             
             # Save the image and get its local path
-            return self.doc_storage.save_image(doc_url, url, response.content)
+            return self.doc_storage.save_image(doc_url, url, response.content, category_id)
         except Exception as e:
             # print(f"Error downloading image {url}: {str(e)}")
             return None
     
-    def _download_images(self, doc_url, soup):
+    def _download_images(self, doc_url, soup, category_id):
         """Download all images from the page and return a mapping of URLs to local paths"""
         local_images = {}
         
@@ -54,7 +54,7 @@ class Crawler:
                 continue
                 
             # Download and save image
-            local_path = self._download_image(doc_url, src)
+            local_path = self._download_image(doc_url, src, category_id)
             if local_path:
                 local_images[src] = local_path
                 
@@ -63,26 +63,15 @@ class Crawler:
     def _replace_markdown_images(self, markdown_content, local_images):
         """Replace image URLs in markdown with local paths"""
         for url, local_path in local_images.items():
-            # Handle different URL formats
-            patterns = [
-                url,
-                url.replace(':', r'\:'),  # Escaped colons
-                url.replace('/', r'\/'),  # Escaped slashes
-            ]
-            
-            for pattern in patterns:
-                # Replace both markdown and HTML image references
-                markdown_content = re.sub(
-                    rf'!\[([^\]]*)\]\({pattern}\)',
-                    rf'![\1]({local_path})',
-                    markdown_content
-                )
-                markdown_content = re.sub(
-                    rf'<img[^>]*src=["\'{pattern}"\'[^>]*>',
-                    rf'<img src="{local_path}">',
-                    markdown_content
-                )
-                
+            # Handle both markdown image syntaxes
+            markdown_content = markdown_content.replace(
+                f'![]({url})', 
+                f'![](images/{os.path.basename(local_path)})'
+            )
+            markdown_content = markdown_content.replace(
+                f']({url})', 
+                f'](images/{os.path.basename(local_path)})'
+            )
         return markdown_content
     
     def _extract_title(self, html_content):
@@ -112,70 +101,43 @@ class Crawler:
         return content.strip()
 
     def crawl(self, url, category_id=None):
-        """
-        Crawl a URL and store its content
-        
-        Args:
-            url (str): URL to crawl
-            category_id (int, optional): Category ID to assign to the document
-        """
+        """Crawl a webpage and store its content"""
         try:
-            # Fetch the webpage
-            response = self.session.get(url, timeout=10)
-            response.raise_for_status()
-            html_content = response.text
+            # Download and parse HTML
+            response = requests.get(url)
+            if response.status_code != 200:
+                return False, f"Failed to download page: {response.status_code}"
             
-            # Parse HTML
-            soup = BeautifulSoup(html_content, 'html.parser')
+            raw_content = response.text
+            soup = BeautifulSoup(raw_content, 'html.parser')
             
-            # Remove unwanted elements
-            for element in soup.find_all(['script', 'style', 'iframe', 'noscript']):
-                element.decompose()
+            # Get title
+            title = soup.title.string if soup.title else url
             
-            # Download images
-            local_images = self._download_images(url, soup)
+            # Download images first
+            local_images = self._download_images(url, soup, category_id)
             
-            # Extract title from HTML
-            title = self._extract_title(html_content)
-            
-            # Process main content
-            main_content = soup.body
-            
-            # Fix relative URLs in the HTML
+            # Process HTML content
+            html_content = str(soup)
             html_content = self._fix_relative_urls(html_content, url)
             
             # Convert to markdown and process images
-            markdown_content = self.html_converter.handle(html_content)
+            markdown_content = html2text.html2text(html_content)
             markdown_content = self._post_process_markdown(markdown_content)
-            # markdown_content = self._replace_markdown_images(markdown_content, local_images)
+            markdown_content = self._replace_markdown_images(markdown_content, local_images)
             
-            # Store the document
-            self.doc_storage.add_document(url=url, 
-                                        title=title, 
-                                        markdown=markdown_content,
-                                        category_id=category_id)
+            # Store the document with category
+            self.doc_storage.add_document(
+                url=url, 
+                title=title, 
+                raw_content=raw_content,
+                markdown=markdown_content,
+                category_id=category_id
+            )
             
-            # Get domain from URL
-            domain = urlparse(url).netloc
-            
-            return {
-                'success': True,
-                'title': title,
-                'url': url,
-                'domain': domain,
-                'content': markdown_content,
-                'image_count': len(local_images)
-            }
-            
+            return True, "Success"
         except Exception as e:
-            import traceback
-            print(f"Error crawling {url}:")
-            print(traceback.format_exc())
-            return {
-                'success': False,
-                'error': str(e),
-                'url': url
-            }
+            return False, f"Error crawling page: {e}"
     
     def _fix_relative_urls(self, html_content, base_url):
         """Fix relative URLs in HTML content"""
