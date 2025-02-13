@@ -56,6 +56,7 @@ class Crawler:
             result = crawler.crawl(url, doc_path)
             if not result.success:
                 logger.info(result.json())
+                return False, result.message, -1
 
             # Download images
             local_images = image_downloader.download_images(url, result.image_urls, images_path)
