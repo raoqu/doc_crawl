@@ -68,7 +68,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     if (categoryFilter) {
-        categoryFilter.addEventListener('change', updateNewDocButton);
+        categoryFilter.addEventListener('change', () => {
+            updateNewDocButton();
+            loadDocuments(); // Reload documents when category changes
+        });
     }
     
     if (addCategoryBtn) {

@@ -1,7 +1,7 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 import os
 from DocumentStorage import DocumentStorage
-from crawler import Crawler
+from crawler import Crawler, ImageExtractor
 import logging
 
 # Configure logging
@@ -14,6 +14,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SECRET_KEY'] = 'secret_key_here'
 doc_storage = DocumentStorage()
 crawler = Crawler(doc_storage)
+image_extractor = ImageExtractor()
 
 # Add markdown filter to Jinja2
 #@app.template_filter('markdown')
@@ -159,6 +160,13 @@ def view_document(document_id):
         if os.path.exists(markdown_path):
             with open(markdown_path, 'r', encoding='utf-8') as f:
                 content = f.read()
+                
+            # Get the document directory for serving images
+            doc_dir = os.path.relpath(markdown_path, doc_storage.doc_path)
+            doc_dir = os.path.dirname(doc_dir)
+            # Replace image path in markdown to the local path
+            content = image_extractor.restore_markdown_images(content, base_path=doc_dir)
+                
             return render_template('markdown.html', content=content)
         else:
             return "Document content not found", 404
@@ -166,6 +174,30 @@ def view_document(document_id):
     except Exception as e:
         logger.error(f"Error viewing document: {e}", exc_info=True)
         return "Error viewing document", 500
+
+@app.route('/view_image/<path:imagepath>')
+def serve_doc_image(imagepath):
+    """Serve document images from the document storage path
+    
+    Args:
+        imagepath: Path to the image relative to doc_storage.doc_path
+    """
+    try:
+        # Construct the full path to the image
+        file_path = os.path.join(doc_storage.doc_path, imagepath)
+        
+        # Get the directory and filename
+        images_dir = os.path.dirname(file_path)
+        file_name = os.path.basename(file_path)
+        
+        # Verify the path is within doc_storage.doc_path
+        if not os.path.abspath(file_path).startswith(os.path.abspath(doc_storage.doc_path)):
+            return "Access denied", 403
+            
+        return send_from_directory(images_dir, file_name)
+    except Exception as e:
+        logger.error(f"Error serving image {imagepath}: {e}", exc_info=True)
+        return "Image not found", 404
 
 @app.route('/content/<int:document_id>')
 def get_content(document_id):

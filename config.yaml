@@ -10,4 +10,4 @@ redis:
 
 crawlers:
   - domain: "raoqu.cc"
-    type: "fire"
+    type: "default"

@@ -5,13 +5,15 @@ from urllib.parse import urlparse, urljoin
 import html2text
 from typing import Tuple
 from concurrent.futures import ThreadPoolExecutor
-from crawlers.image_downloader import ImageDownloader
-from crawlers.image_extractor import ImageExtractor
+from crawlers import ImageDownloader, ImageExtractor
 from crawlers.manager import CrawlerManager
 from DocumentStorage import DocumentStorage
 import logging
 
 logger = logging.getLogger(__name__)
+
+image_extractor = ImageExtractor()
+image_downloader = ImageDownloader()
 
 class Crawler:
     def __init__(self, doc_storage:DocumentStorage):
@@ -48,11 +50,10 @@ class Crawler:
                 logger.info(result.json())
 
             # Download images
-            local_images = ImageDownloader().download_images(url, result.image_urls, images_path)
+            local_images = image_downloader.download_images(url, result.image_urls, images_path)
 
             # Replace image URLs in markdown
-            # markdown_content = ImageExtractor().replace_markdown_images(result.markdown, local_images, url)
-            markdown_content = result.markdown
+            markdown_content = image_extractor.replace_markdown_images(result.markdown, local_images, url)
             
             # Store the document with category
             self.doc_storage.add_document(
