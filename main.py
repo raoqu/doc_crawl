@@ -140,12 +140,12 @@ def crawl():
         logger.error(f"Error crawling URL: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-@app.route('/view/<path:url>')
-def view_document(url):
+@app.route('/view/<int:document_id>')
+def view_document(document_id):
     """View a document's markdown content"""
     try:
         # Get document from database
-        doc = doc_storage.get_document_by_url(url)
+        doc = doc_storage.get_document_by_id(document_id)
         if not doc:
             return "Document not found", 404
             
@@ -156,17 +156,17 @@ def view_document(url):
                 content = f.read()
             return render_template('markdown.html', content=content)
         else:
-            return "Document not found", 404
+            return "Document content not found", 404
             
     except Exception as e:
-        logger.error(f"Error viewing document: {e}")
+        logger.error(f"Error viewing document: {e}", exc_info=True)
         return "Error viewing document", 500
 
-@app.route('/content/<path:url>')
-def get_content(url):
+@app.route('/content/<int:document_id>')
+def get_content(document_id):
     """Get a document's markdown content"""
     try:
-        doc = doc_storage.get_document_by_url(url)
+        doc = doc_storage.get_document_by_id(document_id)
         if not doc:
             return jsonify({"error": "Document not found"}), 404
             
@@ -179,7 +179,7 @@ def get_content(url):
             return jsonify({"error": "Document content not found"}), 404
             
     except Exception as e:
-        logger.error(f"Error getting document content: {e}")
+        logger.error(f"Error getting document content: {e}", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':

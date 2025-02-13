@@ -28,6 +28,7 @@ class DocumentStorage:
         # Initialize SQLite
         self.db_path = os.path.join(self.db_path, 'documents.db')
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row
         self._init_db()
         
         # Initialize Redis if enabled
@@ -143,6 +144,18 @@ class DocumentStorage:
             WHERE d.url = ? 
         ''', (url))
         return cursor.fetchone()
+
+    def get_document_by_id(self, document_id):
+        """Get a document by ID"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT d.*, c.name as category_name
+            FROM documents d 
+            LEFT JOIN categories c ON d.category_id = c.id
+            WHERE d.id = ?
+        ''', (document_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
 
     def get_documents(self, category_id=None):
         """Get all documents, optionally filtered by category"""

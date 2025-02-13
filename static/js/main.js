@@ -178,8 +178,6 @@ function loadDocuments() {
 
 function displayResults(documents) {
     const tbody = document.getElementById('resultsBody');
-    if (!tbody) return;
-    
     tbody.innerHTML = '';
     
     if (documents.length === 0) {
@@ -199,9 +197,9 @@ function displayResults(documents) {
             <td>${createdAt}</td>
             <td>
                 <div class="btn-group">
-                    <a href="/view/${encodeURIComponent(doc.url)}" target="_blank" class="btn btn-sm btn-primary">Markdown</a>
-                    <a href="${doc.url}" target="_blank" class="btn btn-sm btn-outline-secondary">Original</a>
-                    <button onclick="deleteDocument('${doc.url}')" class="btn btn-sm btn-danger">Delete</button>
+                    <a href="/view/${doc.id}" class="btn btn-sm btn-primary" target="_blank">Markdown</a>
+                    <a href="${doc.url}" class="btn btn-sm btn-secondary" target="_blank">Original</a>
+                    <button class="btn btn-sm btn-danger" onclick="deleteDocument('${doc.url}')">Delete</button>
                 </div>
             </td>
         `;
