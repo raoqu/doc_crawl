@@ -40,15 +40,13 @@ class Crawler:
                 return False, "No suitable crawler found"
 
             doc_path = self.doc_storage.get_document_path(url, category_id)
+            images_path = os.path.join(doc_path, 'images')
             
             result = crawler.crawl(url, doc_path)
-            if result.success:
-                logger.info (result.image_urls)
-            else:
+            if not result.success:
                 logger.info(result.json())
 
             # Download images
-            images_path = os.path.join(doc_path, 'images')
             local_images = ImageDownloader().download_images(url, result.image_urls, images_path)
 
             # Replace image URLs in markdown

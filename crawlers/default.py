@@ -68,6 +68,7 @@ class DefaultCrawler(BaseCrawler):
             markdown_content = self._post_process_markdown(markdown_content)
             
             return CrawlResult(
+                success=True,
                 url=url, 
                 title=title, 
                 raw_content=raw_content,
