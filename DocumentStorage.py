@@ -27,7 +27,7 @@ class DocumentStorage:
         
         # Initialize SQLite
         self.db_path = os.path.join(self.db_path, 'documents.db')
-        self.conn = sqlite3.connect(self.db_path)
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._init_db()
         
         # Initialize Redis if enabled
@@ -133,6 +133,16 @@ class DocumentStorage:
         except Exception as e:
             print(f"Error adding document: {e}")
             return False
+
+    def get_document_by_url(self, url):
+        """Get a document by URL"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT d.id, d.url, d.title, d.markdown_path, d.category_id, d.created_at, c.name as category_name
+            FROM documents d 
+            WHERE d.url = ? 
+        ''', (url))
+        return cursor.fetchone()
 
     def get_documents(self, category_id=None):
         """Get all documents, optionally filtered by category"""

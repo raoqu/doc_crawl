@@ -82,11 +82,12 @@ class DefaultCrawler(BaseCrawler):
                 url=url, 
                 title=title, 
                 raw_content=raw_content,
+                html=html_content,
                 markdown=markdown_content,
                 image_urls=image_urls,
             )
         except Exception as e:
-            return False, f"Error crawling page: {e}"
+            return CrawlResult(url=url,message=f"Error crawling page: {e}")
     
     def _download_image(self, doc_url, url, category_id):
         """Download an image and save it locally"""
