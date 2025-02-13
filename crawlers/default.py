@@ -44,7 +44,7 @@ class DefaultCrawler(BaseCrawler):
         """Crawl a webpage and store its content"""
         try:
             # Download and parse HTML
-            print("Downloading", url)
+            print("Fetching page", url)
             response = requests.get(url)
             if response.status_code != 200:
                 return False, f"Failed to download page: {response.status_code}"

@@ -9,5 +9,5 @@ redis:
   db: 0
 
 crawlers:
-  - domain: "raoqu.cc1"
-    type: "firecrawl"
+  - domain: "raoqu.cc"
+    type: "fire"

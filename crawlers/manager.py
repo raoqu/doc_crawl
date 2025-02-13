@@ -3,6 +3,7 @@ from typing import Dict, Type
 from . import BaseCrawler
 from .default import DefaultCrawler
 import importlib
+import traceback
 import re
 
 class CrawlerManager:
@@ -51,6 +52,7 @@ class CrawlerManager:
                 return crawler_class()
             except Exception as e:
                 print(f"Error loading custom crawler {crawler_type}: {e}")
+                traceback.print_exc()
                 # Fall back to default crawler
                 return DefaultCrawler()
         else:
