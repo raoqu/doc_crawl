@@ -36,20 +36,3 @@ class ImageDownloader:
         except Exception as e:
             # print(f"Error downloading image {url}: {str(e)}")
             return None
-    
-    def _download_images(self, doc_url, soup, category_id):
-        """Download all images from the page and return a mapping of URLs to local paths"""
-        local_images = {}
-        
-        # Find all images
-        for img in soup.find_all('img'):
-            src = img.get('src')
-            if not src:
-                continue
-                
-            # Download and save image
-            local_path = self._download_image(doc_url, src, category_id)
-            if local_path:
-                local_images[src] = local_path
-                
-        return local_images

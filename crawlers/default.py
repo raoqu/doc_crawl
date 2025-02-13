@@ -58,7 +58,6 @@ class DefaultCrawler(BaseCrawler):
             
             # Download images first
             image_urls = self._extract_image_urls(soup)
-            local_images = self._download_images(url, soup, category_id)
             
             # Process HTML content
             html_content = str(soup)
@@ -67,16 +66,6 @@ class DefaultCrawler(BaseCrawler):
             # Convert to markdown and process images
             markdown_content = html2text.html2text(html_content)
             markdown_content = self._post_process_markdown(markdown_content)
-            markdown_content = self._replace_markdown_images(markdown_content, local_images)
-            
-            # Store the document with category
-            self.doc_storage.add_document(
-                url=url, 
-                title=title, 
-                raw_content=raw_content,
-                markdown=markdown_content,
-                category_id=category_id
-            )
             
             return CrawlResult(
                 url=url, 
@@ -88,58 +77,6 @@ class DefaultCrawler(BaseCrawler):
             )
         except Exception as e:
             return CrawlResult(url=url,message=f"Error crawling page: {e}")
-    
-    def _download_image(self, doc_url, url, category_id):
-        """Download an image and save it locally"""
-        try:
-            # Handle relative URLs
-            if url.startswith('//'):
-                url = 'https:' + url
-            elif not url.startswith(('http://', 'https://')):
-                base_url = '/'.join(doc_url.split('/')[:-1])
-                url = urljoin(base_url, url)
-            
-            # Download image
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            
-            # Save the image and get its local path
-            return self.doc_storage.save_image(doc_url, url, response.content, category_id)
-        except Exception as e:
-            # print(f"Error downloading image {url}: {str(e)}")
-            return None
-    
-    def _download_images(self, doc_url, soup, category_id):
-        """Download all images from the page and return a mapping of URLs to local paths"""
-        local_images = {}
-        
-        # Find all images
-        for img in soup.find_all('img'):
-            src = img.get('src')
-            if not src:
-                continue
-                
-            # Download and save image
-            local_path = self._download_image(doc_url, src, category_id)
-            if local_path:
-                local_images[src] = local_path
-                
-        return local_images
-
-    
-    def _replace_markdown_images(self, markdown_content, local_images):
-        """Replace image URLs in markdown with local paths"""
-        for url, local_path in local_images.items():
-            # Handle both markdown image syntaxes
-            markdown_content = markdown_content.replace(
-                f'![]({url})', 
-                f'![](images/{os.path.basename(local_path)})'
-            )
-            markdown_content = markdown_content.replace(
-                f']({url})', 
-                f'](images/{os.path.basename(local_path)})'
-            )
-        return markdown_content
 
     def _fix_relative_urls(self, html_content, base_url):
         """Fix relative URLs in HTML content"""

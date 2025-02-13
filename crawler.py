@@ -42,8 +42,10 @@ class Crawler:
             doc_path = self.doc_storage.get_document_path(url, category_id)
             
             result = crawler.crawl(url, doc_path)
-            print(doc_path)
-            print(result.json())
+            if result.success:
+                logger.info (result.image_urls)
+            else:
+                logger.info(result.json())
 
             # Download images
             images_path = os.path.join(doc_path, 'images')
