@@ -1,6 +1,8 @@
 # Install with pip install firecrawl-py
 import os
 import logging
+
+from crawlers.image_extractor import ImageExtractor
 from . import BaseCrawler
 from .result import CrawlResult
 from firecrawl import FirecrawlApp
@@ -39,13 +41,16 @@ class FireCrawler(BaseCrawler):
             })
             print(response)
             scrape_result = ScrapeResult.parse_obj(response)
+            markdown = scrape_result.markdown
+            image_urls = ImageExtractor().extract_from_markdown(markdown)
             return CrawlResult(
                 success=False,
                 url=url, 
                 title=scrape_result.metadata.title,
                 html="",
-                markdown=scrape_result.markdown,
-                link_urls=scrape_result.links
+                markdown=markdown,
+                link_urls=scrape_result.links,
+                image_urls=image_urls
             )
         except Exception as e:
             logger.error(f"Firecrawler - Error crawling {url}: {e}", exc_info=True)
