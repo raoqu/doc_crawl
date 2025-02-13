@@ -100,6 +100,7 @@ def delete_document(url):
 def crawl():
     """Crawl a new URL"""
     try:
+        print("yes")
         data = request.get_json()
         url = data.get('url')
         category_id = data.get('category_id')

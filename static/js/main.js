@@ -3,116 +3,113 @@ const perPage = 10;
 
 // Load documents when page loads
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize UI elements
+    const addDocBtn = document.getElementById('addDocBtn');
+    const urlInput = document.getElementById('urlInput');
+    const categoryFilter = document.getElementById('categoryFilter');
     const searchForm = document.getElementById('searchForm');
     const searchInput = document.getElementById('searchInput');
-    const categoryFilter = document.getElementById('categoryFilter');
-    const addDocBtn = document.getElementById('addDocBtn');
     const addCategoryBtn = document.getElementById('addCategoryBtn');
     const newDocBtn = document.querySelector('.btn-new-doc');
-    
-    // Bootstrap modals
-    const newDocModal = new bootstrap.Modal(document.getElementById('newDocModal'));
-    const newCategoryModal = new bootstrap.Modal(document.getElementById('newCategoryModal'));
     
     // Update New Doc button state based on category selection
     function updateNewDocButton() {
         if (newDocBtn) {
-            const selectedValue = categoryFilter.value;
-            newDocBtn.disabled = !selectedValue || selectedValue === 'new' || selectedValue === '';
+            const categoryId = categoryFilter.value;
+            newDocBtn.disabled = !categoryId || categoryId === 'new';
+            newDocBtn.title = (!categoryId || categoryId === 'new') ? 
+                'Please select a category first' : 'Add new document';
         }
     }
 
-    // Load categories and documents when page loads
-    loadCategories();
-    loadDocuments();
-    
-    // Initially disable New Doc button
-    updateNewDocButton();
-    
-    // Event listeners
-    searchForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        loadDocuments();
-    });
-    
-    // Handle category filter changes
-    if (categoryFilter) {
-        categoryFilter.addEventListener('change', function() {
-            if (this.value === 'new') {
-                this.value = '';  // Reset selection
-                newCategoryModal.show();
-                updateNewDocButton();
-            } else {
-                loadDocuments();
-                updateNewDocButton();
+    if (addDocBtn) {
+        addDocBtn.addEventListener('click', async () => {
+            const url = urlInput.value.trim();
+            const categoryId = categoryFilter.value;
+            
+            if (!url) {
+                alert('Please enter a valid URL');
+                return;
+            }
+            
+            if (!categoryId) {
+                alert('Please select a category');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/crawl', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        category_id: categoryId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Close modal and reload documents
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('newDocModal'));
+                    modal.hide();
+                    urlInput.value = '';
+                    loadDocuments();
+                } else {
+                    alert(data.error || 'Failed to crawl URL');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error crawling URL');
             }
         });
     }
     
-    addDocBtn.addEventListener('click', function() {
-        const url = document.getElementById('urlInput').value;
-        const categoryId = categoryFilter.value;  // Use the main category filter
-        
-        if (!url) {
-            alert('Please enter a URL');
-            return;
-        }
-        
-        // Don't send category_id if it's empty or 'new'
-        const requestBody = {
-            url: url
-        };
-        
-        if (categoryId && categoryId !== 'new') {
-            requestBody.category_id = categoryId;
-        }
-        
-        fetch('/crawl', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                newDocModal.hide();
-                document.getElementById('urlInput').value = '';
-                loadDocuments();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        });
-    });
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', updateNewDocButton);
+    }
     
-    addCategoryBtn.addEventListener('click', function() {
-        const name = document.getElementById('categoryInput').value;
-        
-        if (!name) {
-            alert('Please enter a category name');
-            return;
-        }
-        
-        fetch('/api/categories', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ name: name }),
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.id) {
-                newCategoryModal.hide();
-                document.getElementById('categoryInput').value = '';
-                // Load categories and select the new one
-                loadCategories(data.id);
-            } else {
-                alert('Error: ' + data.error);
+    if (addCategoryBtn) {
+        addCategoryBtn.addEventListener('click', async () => {
+            const categoryInput = document.getElementById('categoryInput');
+            const name = categoryInput.value.trim();
+            
+            if (!name) {
+                alert('Please enter a category name');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/categories', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('newCategoryModal'));
+                    modal.hide();
+                    categoryInput.value = '';
+                    await loadCategories(data.id);
+                } else {
+                    alert(data.error || 'Failed to create category');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error creating category');
             }
         });
-    });
+    }
+    
+    // Load categories and documents
+    loadCategories();
+    loadDocuments();
 });
 
 function loadCategories(selectCategoryId = null) {
@@ -233,64 +230,4 @@ async function deleteDocument(url) {
         console.error('Error deleting document:', error);
         alert('Error deleting document. Please try again.');
     }
-}
-
-// Handle crawl button click
-document.getElementById('crawlButton').addEventListener('click', async () => {
-    const urlInput = document.getElementById('urlInput');
-    const url = urlInput.value.trim();
-    const statusDiv = document.getElementById('crawlStatus');
-    const crawlButton = document.getElementById('crawlButton');
-    
-    if (!url) {
-        showCrawlStatus('Please enter a valid URL', 'danger');
-        return;
-    }
-    
-    // Disable button and show loading state
-    crawlButton.disabled = true;
-    crawlButton.innerHTML = 'Crawling...';
-    showCrawlStatus('Crawling URL...', 'info');
-    
-    try {
-        const response = await fetch('/crawl', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ url })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showCrawlStatus(`Successfully crawled: ${result.title}`, 'success');
-            // Reload documents after successful crawl
-            setTimeout(() => {
-                loadDocuments();
-                // Close modal after 2 seconds
-                setTimeout(() => {
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('newDocModal'));
-                    modal.hide();
-                    // Reset form
-                    urlInput.value = '';
-                    statusDiv.classList.add('d-none');
-                }, 2000);
-            }, 1000);
-        } else {
-            showCrawlStatus(`Error: ${result.error}`, 'danger');
-        }
-    } catch (error) {
-        showCrawlStatus(`Error: ${error.message}`, 'danger');
-    } finally {
-        crawlButton.disabled = false;
-        crawlButton.innerHTML = 'Crawl';
-    }
-});
-
-function showCrawlStatus(message, type) {
-    const statusDiv = document.getElementById('crawlStatus');
-    statusDiv.className = `alert alert-${type}`;
-    statusDiv.classList.remove('d-none');
-    statusDiv.textContent = message;
 }

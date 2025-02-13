@@ -102,7 +102,7 @@ class DocumentStorage:
         ''', (category_id, url))
         self.conn.commit()
 
-    def add_document(self, url, title, raw_content, markdown, category_id=None):
+    def add_document(self, url, title, raw_content, markdown, category_id=None) -> bool:
         """Add a new document to storage"""
         try:
             # Get paths for the document
@@ -238,9 +238,10 @@ class DocumentStorage:
             print(f"Error deleting document: {e}")
             return False
 
-    def _get_file_path(self, url, category_id=None):
-        """Generate storage path based on URL and category"""
-        # Get base path from config
+    def get_document_path(self, url, category_id=None) -> str:
+        if category_id is None:
+            raise Exception('category_id is required')
+
         base_path = self.config.get('storage', {}).get('doc_path', 'docs')
         
         # Get category name if category_id is provided
@@ -261,6 +262,11 @@ class DocumentStorage:
         
         # Create paths
         doc_dir = os.path.join(base_path, category_name, domain, doc_id)
+        return doc_dir
+
+    def _get_file_path(self, url, category_id=None):
+        """Generate storage path based on URL and category"""
+        doc_dir = self.get_document_path(url, category_id)
         markdown_file = os.path.join(doc_dir, 'content.md')
         images_dir = os.path.join(doc_dir, 'images')
         
