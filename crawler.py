@@ -6,6 +6,7 @@ import html2text
 from typing import Tuple
 from concurrent.futures import ThreadPoolExecutor
 from crawlers.image_downloader import ImageDownloader
+from crawlers.image_extractor import ImageExtractor
 from crawlers.manager import CrawlerManager
 from DocumentStorage import DocumentStorage
 import logging
@@ -50,7 +51,8 @@ class Crawler:
             local_images = ImageDownloader().download_images(url, result.image_urls, images_path)
 
             # Replace image URLs in markdown
-            markdown_content = self._replace_markdown_images(result.markdown, local_images)
+            # markdown_content = ImageExtractor().replace_markdown_images(result.markdown, local_images, url)
+            markdown_content = result.markdown
             
             # Store the document with category
             self.doc_storage.add_document(
@@ -66,16 +68,3 @@ class Crawler:
             logger.error(f"Error during crawl: {e}", exc_info=True)
             return False, str(e)
     
-    def _replace_markdown_images(self, markdown_content:str, local_images:dict[str, str]):
-        """Replace image URLs in markdown with local paths"""
-        for url, local_path in local_images.items():
-            # Handle both markdown image syntaxes
-            markdown_content = markdown_content.replace(
-                f'![]({url})', 
-                f'![](images/{os.path.basename(local_path)})'
-            )
-            markdown_content = markdown_content.replace(
-                f']({url})', 
-                f'](images/{os.path.basename(local_path)})'
-            )
-        return markdown_content

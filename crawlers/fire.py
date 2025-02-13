@@ -39,7 +39,6 @@ class FireCrawler(BaseCrawler):
             response = app.scrape_url(url=url, params={
                 'formats': [ 'markdown', 'links' ],
             })
-            print(response)
             scrape_result = ScrapeResult.parse_obj(response)
             markdown = scrape_result.markdown
             image_urls = ImageExtractor().extract_from_markdown(markdown)
