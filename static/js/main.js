@@ -57,8 +57,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     modal.hide();
                     urlInput.value = '';
                     loadDocuments();
+                    
+                    // Redirect to view the new document
+                    if (data.id) {
+                        window.location.href = `/view/${data.id}`;
+                    }
                 } else {
-                    alert(data.error || 'Failed to crawl URL');
+                    alert(data.message || 'Failed to crawl URL');
                 }
             } catch (error) {
                 console.error('Error:', error);

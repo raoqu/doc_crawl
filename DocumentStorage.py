@@ -108,7 +108,7 @@ class DocumentStorage:
         ''', (category_id, url))
         self.conn.commit()
 
-    def add_document(self, url, title, raw_content, markdown, category_id=None) -> bool:
+    def add_document(self, url, title, raw_content, markdown, category_id=None) -> int:
         """Add a new document to storage"""
         try:
             # Get paths for the document
@@ -120,7 +120,7 @@ class DocumentStorage:
             # Save markdown content
             with open(paths['markdown'], 'w', encoding='utf-8') as f:
                 f.write(markdown)
-                
+            
             # Save raw content
             raw_path = os.path.join(os.path.dirname(paths['markdown']), 'content.txt')
             with open(raw_path, 'w', encoding='utf-8') as f:
@@ -134,11 +134,11 @@ class DocumentStorage:
                 VALUES (?, ?, ?, ?, ?)
             ''', (url, title, paths['markdown'], category_id, datetime.now().isoformat()))
             self.conn.commit()
-            
-            return True
+            return cursor.lastrowid
+                
         except Exception as e:
-            print(f"Error adding document: {e}")
-            return False
+            logger.error(f"Error adding document: {e}", exc_info=True)
+            return -1
 
     def get_document_by_url(self, url):
         """Get a document by URL"""

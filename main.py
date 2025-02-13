@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify, render_template, send_from_directory
 import os
+
+from pydantic import BaseModel, Field
 from DocumentStorage import DocumentStorage
 from crawler import Crawler, ImageExtractor
 import logging
@@ -16,10 +18,14 @@ doc_storage = DocumentStorage()
 crawler = Crawler(doc_storage)
 image_extractor = ImageExtractor()
 
-# Add markdown filter to Jinja2
-#@app.template_filter('markdown')
-#def markdown_filter(text):
-#    return markdown.markdown(text, extensions=['extra', 'codehilite'])
+class CrawlRequest(BaseModel):
+    url: str = Field(..., description="URL to crawl")
+    category_id: int = Field(..., description="Category ID")
+
+class CrawlResponse(BaseModel):
+    success: bool = Field(default=False)
+    message: str = Field(default="")
+    id: int = Field(default=None)
 
 @app.route('/')
 def index():
@@ -116,35 +122,19 @@ def delete_document(document_id):
 
 @app.route('/crawl', methods=['POST'])
 def crawl():
-    """Crawl a new URL"""
+    """Crawl a URL and store its content"""
     try:
-        logger.info("Received crawl request")
         data = request.get_json()
-        url = data.get('url')
-        category_id = data.get('category_id')
-        
-        if not url:
-            logger.error("URL is required")
-            return jsonify({'error': 'URL is required'}), 400
+        req = CrawlRequest.parse_obj(data)
             
-        if category_id:
-            try:
-                category_id = int(category_id)
-            except ValueError:
-                logger.error("Invalid category ID")
-                return jsonify({"error": "Invalid category ID"}), 400
-        
-        logger.info(f"Crawling URL: {url} with category: {category_id}")
-        success, error = crawler.crawl(url, category_id)
+        success, error, doc_id = crawler.crawl(req.url, req.category_id)
         if success:
-            logger.info("Crawl successful")
-            return jsonify({'success': True})
+            return CrawlResponse(success=True, id=doc_id).json(), 200
         else:
-            logger.error(f"Crawl failed: {error}")
-            return jsonify({'error': error or 'Failed to crawl URL'}), 400
+            return CrawlResponse(success=False, message=error).json(), 400
     except Exception as e:
         logger.error(f"Error crawling URL: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return CrawlResponse(success=False, message=str(e)).json(), 500
 
 @app.route('/view/<int:document_id>')
 def view_document(document_id):

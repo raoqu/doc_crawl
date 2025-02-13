@@ -33,18 +33,26 @@ class Crawler:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
 
-    def crawl(self, url, category_id=None):
-        """Crawl a webpage and store its content"""
+    def crawl(self, url: str, category_id: int) -> Tuple[bool, str, int]:
+        """Crawl a URL and store the content
+        
+        Args:
+            url: URL to crawl
+            category_id: Category ID to store the document under
+            
+        Returns:
+            Tuple[bool, str, int]: (success, error_message, document_id)
+        """
         try:
-            logger.info(f"Starting crawl for URL: {url} with category: {category_id}")
+            # Get crawler for this URL
             crawler = self.manager.get_crawler(url)
             if not crawler:
-                logger.error("No suitable crawler found")
-                return False, "No suitable crawler found"
-
+                return False, "No crawler available for this URL", None
+            
             doc_path = self.doc_storage.get_document_path(url, category_id)
             images_path = os.path.join(doc_path, 'images')
             
+            # Crawl the URL
             result = crawler.crawl(url, doc_path)
             if not result.success:
                 logger.info(result.json())
@@ -56,16 +64,18 @@ class Crawler:
             markdown_content = image_extractor.replace_markdown_images(result.markdown, local_images, url)
             
             # Store the document with category
-            self.doc_storage.add_document(
-                url=url, 
-                title=result.title, 
+            doc_id = self.doc_storage.add_document(
+                url=url,
+                title=result.title,
                 raw_content=result.html,
                 markdown=markdown_content,
                 category_id=category_id
             )
             
-            return True, "Success"
+            if doc_id<=0:
+                return False, "Failed to add document", None
+            else:
+                return True, "Success", doc_id
         except Exception as e:
             logger.error(f"Error during crawl: {e}", exc_info=True)
-            return False, str(e)
-    
+            return False, str(e), None
