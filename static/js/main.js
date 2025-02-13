@@ -199,7 +199,7 @@ function displayResults(documents) {
                 <div class="btn-group">
                     <a href="/view/${doc.id}" class="btn btn-sm btn-primary" target="_blank">Markdown</a>
                     <a href="${doc.url}" class="btn btn-sm btn-secondary" target="_blank">Original</a>
-                    <button class="btn btn-sm btn-danger" onclick="deleteDocument('${doc.url}')">Delete</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteDocument('${doc.id}')">Delete</button>
                 </div>
             </td>
         `;
@@ -207,25 +207,24 @@ function displayResults(documents) {
     });
 }
 
-async function deleteDocument(url) {
+async function deleteDocument(docId) {
     if (!confirm('Are you sure you want to delete this document?')) {
         return;
     }
     
     try {
-        const response = await fetch(`/api/documents/${encodeURIComponent(url)}`, {
+        const response = await fetch(`/api/documents/${docId}`, {
             method: 'DELETE'
         });
         
-        if (response.ok) {
-            // Reload document list
-            loadDocuments();
+        const data = await response.json();
+        if (data.success) {
+            loadDocuments(); // Reload the document list
         } else {
-            const data = await response.json();
-            alert('Error deleting document: ' + (data.error || 'Unknown error'));
+            alert(data.error || 'Failed to delete document');
         }
     } catch (error) {
-        console.error('Error deleting document:', error);
-        alert('Error deleting document. Please try again.');
+        console.error('Error:', error);
+        alert('Error deleting document');
     }
 }

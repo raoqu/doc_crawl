@@ -95,18 +95,23 @@ def update_document_category(url):
         logger.error(f"Error updating document category: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
-@app.route('/api/documents/<path:url>', methods=['DELETE'])
-def delete_document(url):
+@app.route('/api/documents/<int:document_id>', methods=['DELETE'])
+def delete_document(document_id):
     """Delete a document"""
     try:
-        success = doc_storage.delete_document(url)
-        if success:
-            return jsonify({'success': True})
+        # Get document first to get its path
+        doc = doc_storage.get_document_by_id(document_id)
+        if not doc:
+            return jsonify({"error": "Document not found"}), 404
+
+        # Delete document and its content
+        if doc_storage.delete_document(document_id):
+            return jsonify({"success": True})
         else:
-            return jsonify({'error': 'Document not found'}), 404
+            return jsonify({"error": "Failed to delete document"}), 500
     except Exception as e:
-        logger.error(f"Error deleting document: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        logger.error(f"Error deleting document: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/crawl', methods=['POST'])
 def crawl():

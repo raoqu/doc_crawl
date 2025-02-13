@@ -7,6 +7,11 @@ from datetime import datetime
 from urllib.parse import urlparse
 import uuid
 import mimetypes
+import logging
+import shutil
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 class DocumentStorage:
     def __init__(self, config_path='config.yaml'):
@@ -234,31 +239,32 @@ class DocumentStorage:
             'category_name': row[6] if row[6] else None
         } for row in rows]
 
-    def delete_document(self, url):
-        """Delete a document from database and filesystem"""
+    def delete_document(self, document_id):
+        """Delete a document and its associated files"""
         try:
-            # Get document paths before deleting from database
+            # First get the document to find its path
             cursor = self.conn.cursor()
-            cursor.execute('SELECT markdown_path FROM documents WHERE url = ?', (url,))
-            row = cursor.fetchone()
+            cursor.execute('SELECT markdown_path FROM documents WHERE id = ?', (document_id,))
+            doc = cursor.fetchone()
             
-            if not row:
+            if not doc:
                 return False
                 
-            doc_dir = os.path.dirname(os.path.dirname(row[0]))
+            # Delete the document's directory (containing markdown and images)
+            doc_dir = os.path.dirname(doc['markdown_path'])
+            try:
+                if os.path.exists(doc_dir):
+                    shutil.rmtree(doc_dir)
+            except Exception as e:
+                # Ignore file system errors - proceed with database deletion
+                logger.warning(f"Could not delete document directory {doc_dir}: {e}")
             
             # Delete from database
-            cursor.execute('DELETE FROM documents WHERE url = ?', (url,))
+            cursor.execute('DELETE FROM documents WHERE id = ?', (document_id,))
             self.conn.commit()
-            
-            # Delete document directory
-            if os.path.exists(doc_dir):
-                import shutil
-                shutil.rmtree(doc_dir)
-            
             return True
         except Exception as e:
-            print(f"Error deleting document: {e}")
+            logger.error(f"Error deleting document: {e}", exc_info=True)
             return False
 
     def get_document_path(self, url, category_id=None) -> str:
