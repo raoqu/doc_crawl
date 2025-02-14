@@ -9,6 +9,7 @@ from crawlers import ImageDownloader, ImageExtractor
 from crawlers.manager import CrawlerManager
 from DocumentStorage import DocumentStorage
 import logging
+import json
 
 from crawlers.result import CrawlResult
 

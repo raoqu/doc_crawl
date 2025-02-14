@@ -12,6 +12,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const addCategoryBtn = document.getElementById('addCategoryBtn');
     const newDocBtn = document.querySelector('.btn-new-doc');
     
+    // Initial document load
+    loadDocuments();
+    
+    // Handle search form submission
+    if (searchForm) {
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            loadDocuments();
+        });
+    }
+    
+    // Handle search input changes
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            loadDocuments();
+        });
+    }
+    
     // Update New Doc button state based on category selection
     function updateNewDocButton() {
         if (newDocBtn) {
@@ -74,8 +92,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (categoryFilter) {
         categoryFilter.addEventListener('change', () => {
-            updateNewDocButton();
-            loadDocuments(); // Reload documents when category changes
+            const selectedValue = categoryFilter.value;
+            
+            if (selectedValue === 'new') {
+                // Show new category modal
+                const modal = new bootstrap.Modal(document.getElementById('newCategoryModal'));
+                modal.show();
+                
+                // Reset category filter to previous value
+                categoryFilter.value = categoryFilter.dataset.previousValue || '';
+            } else {
+                // Store the current value for later
+                categoryFilter.dataset.previousValue = selectedValue;
+                updateNewDocButton();
+                loadDocuments();
+            }
         });
     }
     
@@ -101,10 +132,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
                 
                 if (response.ok) {
+                    // Close modal and clear input
                     const modal = bootstrap.Modal.getInstance(document.getElementById('newCategoryModal'));
                     modal.hide();
                     categoryInput.value = '';
+                    
+                    // Reload categories and select the new one
                     await loadCategories(data.id);
+                    loadDocuments();
                 } else {
                     alert(data.error || 'Failed to create category');
                 }
