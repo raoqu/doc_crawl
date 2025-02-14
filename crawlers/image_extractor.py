@@ -10,13 +10,13 @@ class ImageExtractor:
         # Regex patterns for markdown image syntax
         self.md_image_patterns = [
             r'!\[.*?\]\((.*?)(?:\s+".*?")?\)',  # ![alt](url "title")
-            r'!\[.*?\]\[(.*?)\]',               # ![alt][ref]
-            r'\[.*?\]:\s*(.*?)(?:\s+".*?")?$'   # [ref]: url "title"
+            # r'!\[.*?\]\[(.*?)\]',               # ![alt][ref]
+            # r'\[.*?\]:\s*(.*?)(?:\s+".*?")?$'   # [ref]: url "title"
         ]
         self.md_local_image_patterns = [
             r'!\[.*?\]\((images/.*?)(?:\s+".*?")?\)',  # ![alt](url "title")
-            r'!\[.*?\]\[(images/.*?)\]',               # ![alt][ref]
-            r'\[.*?\]:\s*(images/.*?)(?:\s+".*?")?$'   # [ref]: url "title"
+            # r'!\[.*?\]\[(images/.*?)\]',               # ![alt][ref]
+            # r'\[.*?\]:\s*(images/.*?)(?:\s+".*?")?$'   # [ref]: url "title"
         ]
     
     def extract_from_markdown(self, content: str, base_url: str = None) -> Set[str]:
@@ -33,7 +33,7 @@ class ImageExtractor:
         
         # Find all image URLs using regex patterns
         for pattern in self.md_image_patterns:
-            matches = re.finditer(pattern, content, re.MULTILINE)
+            matches = re.finditer(pattern, content, re.MULTILINE|re.DOTALL)
             for match in matches:
                 url = match.group(1).strip()
                 if url:
@@ -100,17 +100,17 @@ class ImageExtractor:
         def _get_local_image_path(url) -> str:
             if url:
                 for src in local_images:
-                    if self._get_full_url(url, base_url) == self._get_full_url(src, base_url):
+                    if url == src or self._get_full_url(url, base_url) == self._get_full_url(src, base_url):
                         return local_images[src]
             return None
                         
         for pattern in self.md_image_patterns:
-            matches = re.finditer(pattern, markdown_content, re.MULTILINE)
+            matches = re.finditer(pattern, markdown_content, re.MULTILINE|re.DOTALL)
             for match in matches:
                 url = match.group(1).strip()
                 local_image_path = _get_local_image_path(url)
                 if local_image_path:
-                    markdown_content = markdown_content.replace(f'({url})', f'({local_image_path})')
+                    markdown_content = markdown_content.replace(f'{url}', f'{local_image_path}')
 
         return markdown_content
 
@@ -132,7 +132,7 @@ class ImageExtractor:
             return markdown
 
         for pattern in self.md_image_patterns:
-            matches = re.finditer(pattern, markdown, re.MULTILINE)
+            matches = re.finditer(pattern, markdown, re.MULTILINE|re.DOTALL)
             for match in matches:
                 image_path = match.group(1).strip()
                 view_path = f'/view_image/{base_path}/{image_path}'

@@ -1,9 +1,7 @@
 from flask import Flask, request, jsonify, render_template, send_from_directory
 import os
-
-from pydantic import BaseModel, Field
 from DocumentStorage import DocumentStorage
-from crawler import Crawler, ImageExtractor
+from crawler import CrawlRequest, Crawler, ImageExtractor, CrawlResult
 import logging
 
 # Configure logging
@@ -17,15 +15,6 @@ app.config['SECRET_KEY'] = 'secret_key_here'
 doc_storage = DocumentStorage()
 crawler = Crawler(doc_storage)
 image_extractor = ImageExtractor()
-
-class CrawlRequest(BaseModel):
-    url: str = Field(..., description="URL to crawl")
-    category_id: int = Field(..., description="Category ID")
-
-class CrawlResponse(BaseModel):
-    success: bool = Field(default=False)
-    message: str = Field(default="")
-    id: int = Field(default=None)
 
 @app.route('/')
 def index():
@@ -127,11 +116,11 @@ def crawl():
         data = request.get_json()
         req = CrawlRequest.parse_obj(data)
             
-        result = crawler.crawl(req.url, req.category_id)
+        result = crawler.crawl(req)
         return result.json(), 200
     except Exception as e:
         logger.error(f"Error crawling URL: {e}", exc_info=True)
-        return CrawlResponse(success=False, message=str(e)).json(), 500
+        return CrawlResult(success=False, message=str(e)).json(), 500
 
 @app.route('/view/<int:document_id>')
 def view_document(document_id):

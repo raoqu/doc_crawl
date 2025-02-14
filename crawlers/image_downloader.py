@@ -14,7 +14,6 @@ class ImageDownloader:
         
         # Find all images
         for image_url in image_urls:
-            print("Downloading image", image_url)
             # Download and save image
             local_path = self._download_image(doc_url, image_url, images_path)
             if local_path:

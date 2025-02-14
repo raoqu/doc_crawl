@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 class CrawlResult(BaseModel):
-    url: str = Field(...)
+    url: str = Field(default="")
     success: bool = Field(default=False)
     message: str = Field(default="")
     title: str = Field(default="")

@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from crawlers import ImageDownloader, ImageExtractor
 from crawlers.manager import CrawlerManager
 from DocumentStorage import DocumentStorage
+from pydantic import BaseModel, Field
 import logging
 import json
 
@@ -17,6 +18,11 @@ logger = logging.getLogger(__name__)
 
 image_extractor = ImageExtractor()
 image_downloader = ImageDownloader()
+
+class CrawlRequest(BaseModel):
+    url: str = Field(..., description="URL to crawl")
+    category_id: int = Field(..., description="Category ID")
+    store: bool = Field(default=True, description="Whether to store the document")
 
 class Crawler:
     def __init__(self, doc_storage:DocumentStorage):
@@ -42,7 +48,7 @@ class Crawler:
             # save image mapping to text file with key - value format
             json.dump(image_mapping, f, indent=4)
 
-    def crawl(self, url: str, category_id: int) -> CrawlResult:
+    def crawl(self, req: CrawlRequest) -> CrawlResult:
         """Crawl a URL and store the content
         
         Args:
@@ -54,6 +60,8 @@ class Crawler:
         """
         try:
             # Get crawler for this URL
+            url = req.url
+            category_id = req.category_id
             crawler = self.manager.get_crawler(url)
             if not crawler:
                 return CrawlResult(success=False, message="No crawler available for this URL")
