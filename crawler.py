@@ -73,8 +73,10 @@ class Crawler:
                 category_id=category_id
             )
             
-            if doc_id<=0:
+            if doc_id<0:
                 return False, "Failed to add document", None
+            elif doc_id==0:
+                return False, "Document already exists", None
             else:
                 return True, "Success", doc_id
         except Exception as e:

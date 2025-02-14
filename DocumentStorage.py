@@ -108,9 +108,18 @@ class DocumentStorage:
         ''', (category_id, url))
         self.conn.commit()
 
+    def get_document_id_by_category_and_url(self, category_id, url):
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT id FROM documents WHERE category_id = ? AND url = ?', (category_id, url))
+        row = cursor.fetchone()
+        return row[0] if row else None
+
     def add_document(self, url, title, raw_content, markdown, category_id=None) -> int:
         """Add a new document to storage"""
         try:
+            if self.get_document_id_by_category_and_url(category_id, url):
+                return 0
+
             # Get paths for the document
             paths = self._get_file_path(url, category_id)
             
