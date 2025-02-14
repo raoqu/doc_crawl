@@ -9,3 +9,4 @@ class CrawlResult(BaseModel):
     markdown: str = Field(default="")
     image_urls: list[str] = Field(default_factory=list)
     link_urls: list[str] = Field(default_factory=list)
+    doc_id: int = Field(default=-1)

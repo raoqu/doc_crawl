@@ -10,6 +10,8 @@ from crawlers.manager import CrawlerManager
 from DocumentStorage import DocumentStorage
 import logging
 
+from crawlers.result import CrawlResult
+
 logger = logging.getLogger(__name__)
 
 image_extractor = ImageExtractor()
@@ -33,7 +35,13 @@ class Crawler:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
 
-    def crawl(self, url: str, category_id: int) -> Tuple[bool, str, int]:
+    def _save_image_mapping(self, image_mapping, doc_path):
+        """Save image mapping to JSON file"""
+        with open(os.path.join(doc_path, 'image_mapping.json'), 'w') as f:
+            # save image mapping to text file with key - value format
+            json.dump(image_mapping, f, indent=4)
+
+    def crawl(self, url: str, category_id: int) -> CrawlResult:
         """Crawl a URL and store the content
         
         Args:
@@ -41,13 +49,13 @@ class Crawler:
             category_id: Category ID to store the document under
             
         Returns:
-            Tuple[bool, str, int]: (success, error_message, document_id)
+            CrawlResult: (success, error_message, document_id)
         """
         try:
             # Get crawler for this URL
             crawler = self.manager.get_crawler(url)
             if not crawler:
-                return False, "No crawler available for this URL", None
+                return CrawlResult(success=False, message="No crawler available for this URL")
             
             doc_path = self.doc_storage.get_document_path(url, category_id)
             images_path = os.path.join(doc_path, 'images')
@@ -56,10 +64,11 @@ class Crawler:
             result = crawler.crawl(url, doc_path)
             if not result.success:
                 logger.info(result.json())
-                return False, result.message, -1
+                return CrawlResult(success=False, message=result.message)
 
             # Download images
             local_images = image_downloader.download_images(url, result.image_urls, images_path)
+            self._save_image_mapping(local_images, doc_path)
 
             # Replace image URLs in markdown
             markdown_content = image_extractor.replace_markdown_images(result.markdown, local_images, url)
@@ -74,11 +83,12 @@ class Crawler:
             )
             
             if doc_id<0:
-                return False, "Failed to add document", None
+                return CrawlResult(success=False, message="Failed to add document")
             elif doc_id==0:
-                return False, "Document already exists", None
+                return CrawlResult(success=False, message="Document already exists")
             else:
-                return True, "Success", doc_id
+                result.doc_id = doc_id
+                return result
         except Exception as e:
             logger.error(f"Error during crawl: {e}", exc_info=True)
-            return False, str(e), None
+            return CrawlResult(success=False, message=str(e))

@@ -51,6 +51,8 @@ class DefaultCrawler(BaseCrawler):
             
             ## FIXME: This does not work for dynamically loaded content
             raw_content = response.text
+            # replace <mip-img to <img in raw_content
+            raw_content = raw_content.replace('<mip-img ', '<img ')
             soup = BeautifulSoup(raw_content, 'html.parser')
             
             # Get title

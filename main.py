@@ -127,11 +127,8 @@ def crawl():
         data = request.get_json()
         req = CrawlRequest.parse_obj(data)
             
-        success, error, doc_id = crawler.crawl(req.url, req.category_id)
-        if success:
-            return CrawlResponse(success=True, id=doc_id).json(), 200
-        else:
-            return CrawlResponse(success=False, message=error).json(), 400
+        result = crawler.crawl(req.url, req.category_id)
+        return result.json(), 200
     except Exception as e:
         logger.error(f"Error crawling URL: {e}", exc_info=True)
         return CrawlResponse(success=False, message=str(e)).json(), 500
